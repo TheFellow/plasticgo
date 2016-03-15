@@ -20,7 +20,7 @@ go get gopkg.in/yaml.v2
 ```
 mkdir src\espeleta.info
 cd src\espeleta.info
-git clone https://github.com/tespeleta/goparser.git
+git clone https://github.com/tespeleta/plasticgo.git
 go install espeleta.info/goparser
 cd %GOPATH%
 ```
