@@ -91,14 +91,22 @@ func doFile(filename string, t *testing.T) {
   }
 }
 
-func TestWinBOM(t *testing.T) {
-  doFile("testdata/example-win-bom.go", t)
+func TestWithErrors(t *testing.T) {
+  filename := "testdata/bad.go"
+  v := parseGoFile(filename)
+  if v.root.ParsingErrorsDetected {
+    for _, error := range v.root.ParsingError {
+      fmt.Println("Expected error: ", error.Location, ", msg: ", error.Message)
+    }
+  } else {
+    t.Error("Filename: ", filename, ", expected errors")
+  }
 }
 
 func TestAll(t *testing.T) {
   filepath.Walk("testdata", func(path string, f os.FileInfo, err error) error {
-    if strings.HasSuffix(path, ".go") {
-      doFile(path, t)
+    if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "bad.go") {
+      //doFile(path, t)
     } 
     return nil
   });

@@ -6,6 +6,7 @@ import (
     "fmt"
     "go/ast"
     "go/parser"
+    "go/scanner"
     "go/token"
     "gopkg.in/yaml.v2"
     "io/ioutil"
@@ -272,6 +273,21 @@ func (v *FuncVisitor) Visit(node ast.Node) ast.Visitor {
     return v
 }
 
+func parseErrors(filename string, v *FuncVisitor, errors scanner.ErrorList) {
+    v.root = &File {
+      id: newid(),
+      Type: "file",
+      Name: filename,
+      ParsingErrorsDetected: true,
+      FooterSpan: []int{ -1, 0 },
+    }
+    for _, error := range errors {
+      loc := error.Pos;
+      e := &ParsingError{ Location: []int{ loc.Line, loc.Column }, Message: error.Msg }
+      v.root.ParsingError = append(v.root.ParsingError, e)
+    }
+}
+
 func parseGoFile(filename string) (*FuncVisitor) {
     // Read as bytes buffer
     buffer, err1 := ioutil.ReadFile(filename)
@@ -280,7 +296,7 @@ func parseGoFile(filename string) (*FuncVisitor) {
     }
     // Parse file (get first file from returned fileset)
     fset := token.NewFileSet()
-    file, err2 := parser.ParseFile(fset, filename, nil, 0)
+    file, errList := parser.ParseFile(fset, filename, nil, 0)
     var firstFile *token.File
     fset.Iterate(func(f *token.File) bool {
       firstFile = f
@@ -290,35 +306,38 @@ func parseGoFile(filename string) (*FuncVisitor) {
     // Create stack for dfs
     stack := &Stack{}
     var v = &FuncVisitor{ stack: stack, file: firstFile, buffer: buffer }
-    if err2 != nil {
-        panic(err2)
-    }
-    // Do walk!
-    ast.Walk(v, file)
+
+    // Parse errors
+    if errList != nil {
+      parseErrors(filename, v, errList.(scanner.ErrorList))
     
-    // Adjust FooterSpan with spare whitespaces at the end of the file
-    endOfContent := v.adjustToEOL(v.root.FooterSpan[0]);
-    endOfFile := len(buffer) - 1
-    if endOfFile > endOfContent {
-      v.root.FooterSpan = []int{ endOfContent + 1, endOfFile }
     } else {
-      v.root.FooterSpan = []int{ -1, 0 }
-    }
-    n := len(v.root.Children)
-    if n > 0 {
-      last := v.root.Children[n - 1]
-      lastChild := asNode(last)
-      switch c := (*lastChild).(type) {
-        case *Container:
-          c.FooterSpan[1] = v.adjustToEOL(c.FooterSpan[1])
-        case *Terminal:
-          c.Span[1] = v.adjustToEOL(c.Span[1])
+      // Do walk!
+      ast.Walk(v, file)
+
+      // Adjust FooterSpan with spare whitespaces at the end of the file
+      endOfContent := v.adjustToEOL(v.root.FooterSpan[0]);
+      endOfFile := len(buffer) - 1
+      if endOfFile > endOfContent {
+        v.root.FooterSpan = []int{ endOfContent + 1, endOfFile }
+      } else {
+        v.root.FooterSpan = []int{ -1, 0 }
       }
-    }
-    // Dealing with transformation is a bit complicated in the first pass...
-    // we transform the offsets to runes in a second pass of the output tree
-    offsetTransformation(v.root, v.buffer)
-    
+      n := len(v.root.Children)
+      if n > 0 {
+        last := v.root.Children[n - 1]
+        lastChild := asNode(last)
+        switch c := (*lastChild).(type) {
+          case *Container:
+            c.FooterSpan[1] = v.adjustToEOL(c.FooterSpan[1])
+          case *Terminal:
+            c.Span[1] = v.adjustToEOL(c.Span[1])
+        }
+      }
+      // Dealing with transformation is a bit complicated in the first pass...
+      // we transform the offsets to runes in a second pass of the output tree
+      offsetTransformation(v.root, v.buffer)
+    }    
     return v
 }
 
