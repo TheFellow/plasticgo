@@ -321,7 +321,7 @@ func parseGoFile(filename string) (*FuncVisitor) {
       if endOfFile > endOfContent {
         v.root.FooterSpan = []int{ endOfContent + 1, endOfFile }
       } else {
-        v.root.FooterSpan = []int{ -1, 0 }
+        v.root.FooterSpan = []int{ 0, -1 }
       }
       n := len(v.root.Children)
       if n > 0 {
