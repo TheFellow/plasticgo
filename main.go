@@ -279,7 +279,7 @@ func parseErrors(filename string, v *FuncVisitor, errors scanner.ErrorList) {
       Type: "file",
       Name: filename,
       ParsingErrorsDetected: true,
-      FooterSpan: []int{ -1, 0 },
+      FooterSpan: []int{ 0, -1 },
     }
     for _, error := range errors {
       loc := error.Pos;
